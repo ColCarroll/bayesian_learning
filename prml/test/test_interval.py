@@ -62,13 +62,13 @@ class TestInterval(TestCase):
     def test_string(self):
         self.assertEqual(
             str(self.open_interval),
-            "open interval with open endpoint at 0.0 and open endpoint at 2.0")
+            "(0, 2)")
         self.assertEqual(
             str(self.closed_interval),
-            "closed interval with closed endpoint at 0.0 and closed endpoint at 2.0")
+            "[0, 2]")
         self.assertEqual(
             str(self.half_open_interval),
-            "half open interval with open endpoint at 0.0 and closed endpoint at 2.0")
+            "(0, 2]")
 
     def test_equality(self):
         self.assertTrue(self.open_interval == self.open_interval)
@@ -81,7 +81,7 @@ class TestInterval(TestCase):
             self.open_interval.union(self.disjoint_with_open),
             [self.disjoint_with_open, self.open_interval])
         self.assertListEqual(
-            self.open_interval.union(*[]),
+            self.open_interval.union(),
             [self.open_interval]
         )
         self.assertListEqual(
@@ -103,4 +103,3 @@ class TestInterval(TestCase):
             self.open_interval.intersect(self.closed_interval),
             self.open_interval
         )
-        self.assertRaises(NotImplementedError, self.open_interval.intersect, 3)

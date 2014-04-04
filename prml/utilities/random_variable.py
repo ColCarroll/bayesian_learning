@@ -2,59 +2,80 @@ __author__ = 'colinc'
 
 
 class Point:
-    def __init__(self, point, is_open=True):
+    def __init__(self, point, is_open=True, endpoint="left"):
         self.value = point
         self.is_open = is_open
+        self.endpoint = endpoint
+
+    @property
+    def test_val(self):
+        if self.endpoint == "left":
+            return self.value + int(self.is_open)
+        return self.value - int(self.is_open)
 
     @property
     def is_closed(self):
-        return not self.is_open
+        return not self.is_open  # I understand closed is not "not open"...
 
     def __eq__(self, other):
         if isinstance(other, Point):
-            return (other.value == self.value) and (other.is_open == self.is_open)
+            return (self.endpoint == other.endpoint) and (other.value == self.value) and (other.is_open == self.is_open)
         raise NotImplementedError("Only compare Point to Point")
 
     def __gt__(self, other):
         if isinstance(other, Point):
             if other.value == self.value:
-                return self.is_closed
+                return self.test_val > other.test_val
             return self.value > other.value
+        raise NotImplementedError("Only compare Point to Point")
+
+    def __lt__(self, other):
+        if isinstance(other, Point):
+            if other.value == self.value:
+                return self.test_val < other.test_val
+            return self.value < other.value
         raise NotImplementedError("Only compare Point to Point")
 
     def __ge__(self, other):
         if isinstance(other, Point):
             return self > other or self == other
-
-    def __lt__(self, other):
-        if isinstance(other, Point):
-            if other.value == self.value:
+        if other == self.value:
+            if self.endpoint == "left":
                 return self.is_open
-            return self.value < other.value
-        raise NotImplementedError("Only compare Point to Point")
+            return self.is_closed
+        return self.value > other
 
     def __le__(self, other):
         if isinstance(other, Point):
             return self < other or self == other
-
-    @property
-    def status(self):
-        if self.is_open:
-            return "open"
-        return "closed"
+        if other == self.value:
+            if self.endpoint == "left":
+                return self.is_closed
+            return self.is_open
+        return self.value < other
 
     def __repr__(self):
-        return "{:s} endpoint at {:.1f}".format(self.status, self.value)
-
-    def __str__(self):
-        return self.__repr__()
+        if self.is_open:
+            if self.endpoint == "left":
+                sym = "("
+            else:
+                sym = ")"
+        else:
+            if self.endpoint == "left":
+                sym = "["
+            else:
+                sym = "]"
+        if self.endpoint == "left":
+            return "{:s}{:s}".format(sym, str(self.value))
+        else:
+            return "{:s}{:s}".format(str(self.value), sym)
 
 
 class Interval:
     def __init__(self, lower_point=Point(float("-inf")), upper_point=Point(float("inf"))):
-        self.lower = lower_point
-        self.upper = upper_point
-        self.empty = (self.lower >= self.upper) or (self.lower.value == self.upper.value)
+        self.lower = Point(lower_point.value, lower_point.is_open, endpoint="left")
+        self.upper = Point(upper_point.value, upper_point.is_open, endpoint="right")
+        self.empty = (self.lower.value >= self.upper.value)
 
     def __eq__(self, other):
         if isinstance(other, Interval):
@@ -64,7 +85,7 @@ class Interval:
 
     def __repr__(self):
         if not self.empty:
-            return "{:s} interval with {:s} and {:s}".format(self.state, str(self.lower), str(self.upper))
+            return "{:s}, {:s}".format(str(self.lower), str(self.upper))
         return "empty interval"
 
     @property
@@ -79,43 +100,28 @@ class Interval:
             return True
         return self.lower.is_open and self.upper.is_open
 
-    @property
-    def state(self):
-        if self.empty:
-            return "true and false"
-        elif self.is_open:
-            return "open"
-        elif self.is_closed:
-            return "closed"
-        else:
-            return "half open"
-
     def contains(self, x):
-        if self.lower.is_open:
-            low_cmp = lambda j: self.lower.__lt__(j)
-        else:
-            low_cmp = lambda j: self.lower.__le__(j)
         return self.lower <= x <= self.upper
 
     def _intersects(self, other):
         """ Tests whether two intervals intersect
         """
         if isinstance(other, Interval):
-            return ((self.lower <= other.upper) and (other.lower <= self.upper)
-                    or (other.contains(self.lower.value))
-                    or (other.contains(self.upper.value))
-                    or (self.contains(other.lower.value))
-                    or (self.contains(other.upper.value)))
+            return ((self.lower <= other.upper and other.lower <= self.upper) or
+                    self.contains(other.upper.value) or
+                    self.contains(other.lower.value) or
+                    other.contains(self.upper.value) or
+                    other.contains(self.lower.value))
         raise NotImplementedError("Must intersect Interval with Interval")
 
     def split(self, *others):
         """ Splits a list of intervals into a list that is disjoint with self, and a list of intervals
          that intersect with self
         """
-        disjoint, non_disjoint = [], []
+        non_intersections, intersections = [], []
         for interval in others:  # Clever way to split lists: http://stackoverflow.com/a/12135169/2620170
-            (disjoint, non_disjoint)[self._intersects(interval)].append(interval)
-        return disjoint, non_disjoint
+            (non_intersections, intersections)[self._intersects(interval)].append(interval)
+        return non_intersections, intersections
 
     def union(self, *others):
         """ Takes the union of a collection of intervals.  If the starting list was disjoint,
@@ -164,4 +170,3 @@ class RandomVariable:
 
     def __call__(self, x):
         return self.__func(x)
-
